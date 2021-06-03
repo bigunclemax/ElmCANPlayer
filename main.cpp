@@ -12,14 +12,21 @@ int main(int argc, char *argv[])
     std::unique_ptr<PlayerGUI>      form;
     std::unique_ptr<CanController>  can_controller;
 
-    QFuture<int> future;
-    QFutureWatcher<int> watcher;
+    QFuture<QString> future;
+    QFutureWatcher<QString> watcher;
 
-    QObject::connect(&watcher, &QFutureWatcher<int>::finished, [&]{
-        init_dialog->close();
-        form = std::make_unique<PlayerGUI>(std::move(can_controller));
-        form->setWindowTitle("CAN Player");
-        form->show();
+    QObject::connect(&watcher, &QFutureWatcher<QString>::finished, [&]{
+
+        if(watcher.result().isEmpty()) {
+            init_dialog->close();
+            form = std::make_unique<PlayerGUI>(std::move(can_controller));
+            form->setWindowTitle("CAN Player");
+            form->show();
+        } else {
+            QMessageBox(QMessageBox::Warning,
+                        "CAN device error", watcher.result(), QMessageBox::Ok, init_dialog.get()).exec();
+            init_dialog->setEnabled(true);
+        }
     });
 
     QObject::connect(init_dialog.get(), &Dialog::rejected, [&] {
@@ -32,12 +39,15 @@ int main(int argc, char *argv[])
 
         future = QtConcurrent::run([&] {
             auto settings = init_dialog->getSettings();
-            can_controller = std::make_unique<CanController>(settings.port_name,
-                                                              static_cast<uint32_t>(!settings.autodetect
-                                                                                    ? settings.baudrate : 0),
-                                                              settings.maximize);
-
-            return 0;
+            try {
+                can_controller = std::make_unique<CanController>(settings.port_name,
+                                                                 static_cast<uint32_t>(!settings.autodetect
+                                                                                       ? settings.baudrate : 0),
+                                                                 settings.maximize);
+            } catch (std::runtime_error& ex) {
+                return QString(ex.what());
+            }
+            return QString();
         });
         watcher.setFuture(future);
 
