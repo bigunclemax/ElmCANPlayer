@@ -70,6 +70,8 @@ PlayerGUI::PlayerGUI(std::unique_ptr<CanController> controller, QWidget *parent)
             return;
         else {
 
+            ui->listWidget->clear();
+
             m_captured_data = ElmPlayerUtils::convert(fileName.toStdString());
             std::set<int> unique_ids;
             for(const auto &p :m_captured_data) {
