@@ -36,6 +36,8 @@ PlayerGUI::PlayerGUI(std::unique_ptr<CanController> controller, QWidget *parent)
                 }
             });
 
+    ui->comboBox_canType->setCurrentIndex(1);
+
     /* Log show */
     ui->plainTextEdit_log->setFont(QFont("monospace"));
 
