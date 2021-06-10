@@ -12,6 +12,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 #add_compile_definitions(DEBUG)
+#add_compile_definitions(VIRTUAL_CAN_DEVICE)
 
 add_subdirectory(stn1170-tools)
 

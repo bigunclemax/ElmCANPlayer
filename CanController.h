@@ -30,7 +30,7 @@ private:
     int set_ecu_address(unsigned ecu_address);
     std::atomic<int> m_ecu_addr = 0;
 
-    CanDevice comPort;
+    std::unique_ptr<CanDevice> comPort;
     std::mutex mutex;
 
     std::atomic<bool> is_logger_set = false;
