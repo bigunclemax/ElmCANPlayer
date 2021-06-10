@@ -18,10 +18,10 @@ int main(int argc, char *argv[])
     QObject::connect(&watcher, &QFutureWatcher<QString>::finished, [&]{
 
         if(watcher.result().isEmpty()) {
-            init_dialog->close();
             form = std::make_unique<PlayerGUI>(std::move(can_controller));
             form->setWindowTitle("CAN Player");
             form->show();
+            init_dialog->close();
         } else {
             QMessageBox(QMessageBox::Warning,
                         "CAN device error", watcher.result(), QMessageBox::Ok, init_dialog.get()).exec();
