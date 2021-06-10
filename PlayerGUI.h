@@ -11,6 +11,8 @@
 #include <memory>
 #include <thread>
 #include <CanController.h>
+#include <QHBoxLayout>
+#include <QtWidgets>
 #include "utils.h"
 
 using ElmPlayerUtils::Packet;
@@ -84,11 +86,91 @@ public:
 
 private:
 
+    enum enPeriodicCols {
+        COL_CAN_ID = 0,
+        COL_CAN_DATA,
+        COL_EN,
+        COL_COUNT
+    };
+    static constexpr int PERIODIC_MSG_COUNT = 10;
+
+    void resizeEvent(QResizeEvent *event) override;
+
     PlayerThread player;
     Ui::Form *ui;
     std::vector<Packet> m_captured_data;
-
 };
 
+class CheckboxCell : public QWidget {
+
+    Q_OBJECT
+
+    QCheckBox *m_checkBox;
+public:
+
+    CheckboxCell() {
+        m_checkBox = new QCheckBox();
+        auto layoutCheckBox = new QHBoxLayout(this);
+        layoutCheckBox->addWidget(m_checkBox);
+        layoutCheckBox->setAlignment(Qt::AlignCenter);
+        layoutCheckBox->setContentsMargins(0,0,0,0);
+    }
+
+    void mousePressEvent(QMouseEvent *event) override {
+        if (event->button() == Qt::MouseButton::LeftButton) {
+            m_checkBox->setChecked(!m_checkBox->isChecked());
+        }
+        QWidget::mousePressEvent(event);
+    }
+
+    [[nodiscard]] bool isChecked() const {
+        return m_checkBox->isChecked();
+    }
+};
+
+class DelegateColCanID : public QItemDelegate
+{
+public:
+    QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem & option,
+                          const QModelIndex & index) const override
+    {
+        auto lineEdit = new QLineEdit(parent);
+
+        connect(lineEdit, &QLineEdit::textEdited, [lineEdit](const QString &text) {
+                lineEdit->setText(text.toUpper());
+        });
+
+        auto validator = new QRegExpValidator(QRegExp("[0-9a-fA-F]{3}"), lineEdit);
+        lineEdit->setValidator(validator);
+        lineEdit->setPlaceholderText("XXX");
+        return lineEdit;
+    }
+};
+
+class DelegateColCanData : public QItemDelegate
+{
+public:
+    QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem & option,
+                          const QModelIndex & index) const override
+    {
+        auto lineEdit = new QLineEdit(parent);
+        lineEdit->setMaxLength(23);
+
+        connect(lineEdit, &QLineEdit::textEdited, [lineEdit](const QString &text) {
+            if(!((text.size()+1) % 3)) {
+                lineEdit->setText(text.toUpper() + " ");
+            } else {
+                lineEdit->setText(text.toUpper());
+            }
+
+        });
+
+        lineEdit->setPlaceholderText("XX XX XX XX XX XX XX XX");
+        auto validator = new QRegExpValidator(QRegExp("([0-9a-fA-F]{2} ){7}[0-9a-fA-F]{2}|"), lineEdit);
+        lineEdit->setValidator(validator);
+
+        return lineEdit;
+    }
+};
 
 #endif //FOCUSIPCCTRL_PLAYERGUI_H

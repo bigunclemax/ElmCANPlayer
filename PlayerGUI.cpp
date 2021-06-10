@@ -8,6 +8,10 @@
 #include <QtWidgets/QFileDialog>
 #include <QtWidgets/QMessageBox>
 #include <QTextStream>
+#include <QItemDelegate>
+#include <QLineEdit>
+#include <QTimer>
+
 #include "utils.h"
 
 PlayerGUI::PlayerGUI(std::unique_ptr<CanController> controller, QWidget *parent):
@@ -153,6 +157,7 @@ PlayerGUI::PlayerGUI(std::unique_ptr<CanController> controller, QWidget *parent)
     {
         if(i) {
             /* lock corresponding gui elements */
+            ui->tabWidget->tabBar()->setEnabled(false);
             ui->listWidget->setEnabled(false);
             ui->pushButton_selectAll->setEnabled(false);
             ui->pushButton_resetAll->setEnabled(false);
@@ -175,6 +180,7 @@ PlayerGUI::PlayerGUI(std::unique_ptr<CanController> controller, QWidget *parent)
             player.wait();
 
             /* unlock corresponding gui elements */
+            ui->tabWidget->tabBar()->setEnabled(true);
             ui->listWidget->setEnabled(true);
             ui->pushButton_selectAll->setEnabled(true);
             ui->pushButton_resetAll->setEnabled(true);
@@ -204,6 +210,82 @@ PlayerGUI::PlayerGUI(std::unique_ptr<CanController> controller, QWidget *parent)
                     l->setSelected(false);
                 }
             });
+
+    ui->tableWidget_periodic->setRowCount(PERIODIC_MSG_COUNT);
+    ui->tableWidget_periodic->horizontalHeader()->setStretchLastSection(true);
+    ui->tableWidget_periodic->setItemDelegateForColumn(COL_CAN_ID, new DelegateColCanID);
+    ui->tableWidget_periodic->setItemDelegateForColumn(COL_CAN_DATA, new DelegateColCanData);
+    for (int i = 0; i < PERIODIC_MSG_COUNT; ++i) {
+        ui->tableWidget_periodic->setCellWidget(i, COL_EN, new CheckboxCell());
+    }
+
+    connect(ui->pushButton_playPeriodic, QOverload<bool>::of(&QPushButton::toggled),[this](bool doPlay) {
+
+
+        if(doPlay) {
+            // lock UI (tabs, table)
+            ui->tabWidget->tabBar()->setEnabled(false);
+            ui->tableWidget_periodic->setEnabled(false);
+
+            // check table for valid CAN packages
+            std::vector<Packet> periodic_data;
+
+            for (int i = 0; i < PERIODIC_MSG_COUNT; ++i) {
+
+                bool ok;
+                auto checkBox = qobject_cast <CheckboxCell*> (ui->tableWidget_periodic->cellWidget(i, COL_EN));
+                if (!checkBox) {
+                    continue;
+                }
+                if (!checkBox->isChecked()) {
+                    continue;
+                }
+                auto item = ui->tableWidget_periodic->item(i, COL_CAN_ID);
+                if (!item) {
+                    continue;
+                }
+                auto can_id = item->text().toUShort(&ok, 16);
+                if(!ok) {
+                    continue;
+                }
+                item = ui->tableWidget_periodic->item(i, COL_CAN_DATA);
+                if (!item) {
+                    continue;
+                }
+                auto data = item->text().simplified().replace( " ", "" ).toULongLong(&ok, 16);
+                if(!ok) {
+                    continue;
+                }
+                data = qToBigEndian(data);
+                periodic_data.push_back({can_id, data});
+            }
+
+            if (!periodic_data.empty()) {
+                player.setLoopPlay(true);
+                player.play(periodic_data, std::set<int>());
+            } else {
+                ui->pushButton_playPeriodic->setChecked(false);
+            }
+
+        } else {
+            player.requestInterruption();
+            player.wait();
+
+            // unlock UI (tabs, table)
+            ui->tabWidget->tabBar()->setEnabled(true);
+            ui->tableWidget_periodic->setEnabled(true);
+        }
+    });
+}
+
+void PlayerGUI::resizeEvent(QResizeEvent *event) {
+
+    QTimer::singleShot(0, [&] {
+        ui->tableWidget_periodic->setColumnWidth(COL_CAN_ID, ui->tableWidget_periodic->width() * 0.2);
+        ui->tableWidget_periodic->setColumnWidth(COL_CAN_DATA, ui->tableWidget_periodic->width() * 0.5);
+    });
+
+    QWidget::resizeEvent(event);
 }
 
 void PlayerGUI::slotLog(const QString &str) {
@@ -211,5 +293,6 @@ void PlayerGUI::slotLog(const QString &str) {
 }
 
 void PlayerGUI::playFinished() {
-    ui->pushButton_play->setChecked(false);
+    if (ui->pushButton_play->isChecked())
+        ui->pushButton_play->setChecked(false);
 }
