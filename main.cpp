@@ -8,6 +8,8 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
+    bool can_controller_configured = false;
+
     std::unique_ptr<Dialog>         init_dialog = std::make_unique<Dialog>();
     std::unique_ptr<PlayerGUI>      form;
     std::unique_ptr<CanController>  can_controller;
@@ -18,6 +20,7 @@ int main(int argc, char *argv[])
     QObject::connect(&watcher, &QFutureWatcher<QString>::finished, [&]{
 
         if(watcher.result().isEmpty()) {
+            can_controller_configured = true;
             form = std::make_unique<PlayerGUI>(std::move(can_controller));
             form->setWindowTitle("CAN Player");
             form->show();
@@ -30,7 +33,7 @@ int main(int argc, char *argv[])
     });
 
     QObject::connect(init_dialog.get(), &Dialog::rejected, [&] {
-        if (!can_controller) {
+        if (!can_controller_configured) {
             exit(0);
         }
     });
